@@ -428,7 +428,6 @@ def save_results(max_path, edge_matrix):
 
 def main():
 	files = next(os.walk("kpcorpus"))[2]
-	files.remove(".DS_Store")
 
 	scores = []
 
