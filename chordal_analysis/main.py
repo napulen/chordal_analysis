@@ -3,6 +3,7 @@ import midi, pprint, re, os, sys, csv
 from collections import Counter
 from pylab import *
 import scipy.spatial.distance as e
+from natsort import natsorted, ns
 
 # const for midi files
 NOTE_ON_EVENT = 144
@@ -90,7 +91,7 @@ ALL_TEMPLATES = {
 					"B_min":[(11,2,6),.194],
 					"B_fdim":[(11,2,5,8),.044],
 					"B_hdim":[(11,2,5,9),.037],
-					"B_dim":[(11,2,5),0.018],	
+					"B_dim":[(11,2,5),0.018],
 				}
 SCORING = {
 	"C#_min":[(1,4,8),.194],
@@ -139,7 +140,7 @@ def read_midi_files(path):
 		if i is not 0 and key[1] == answer_key[i - 1][1]:
 			del answer_key[i - 1]
 
-	n = len(answer_key) - 1 
+	n = len(answer_key) - 1
 
 	for i, key in enumerate(answer_key):
 		if i < n:
@@ -177,9 +178,9 @@ def score_edges(edge_matrix,node_array):
 	n = len(edge_matrix)
 	for row in xrange(n):
 		for col in xrange(row+1,n):
-			
+
 			# holds note weights across all minimal segments in an edge
-			note_weights = Counter({}) 
+			note_weights = Counter({})
 			bad_segments = 0
 			for i in xrange(row, col+1):
 
@@ -201,12 +202,12 @@ def score_edges(edge_matrix,node_array):
 
 			max_score = float("-inf")
 			max_chord_name = ""
-			
+
 			# iterate through templates
 			for chord,base in ALL_TEMPLATES.iteritems():
 				P = 0
 				N = sum(note_weights.values())
-				M = 0 
+				M = 0
 
 				# score edge-to-template similarity
 				for note in note_weights.keys():
@@ -279,17 +280,17 @@ def find_longest_path(start, end, graph):
 def test_longest_path():
 	size = 6
 	test = [[Edge("",float("-inf")) for i in range(size)] for i in range(size)]
-	test[0][1] = Edge("",5) 
-	test[0][2] = Edge("",3) 
-	test[1][3] = Edge("",6) 
-	test[1][2] = Edge("",2) 
-	test[2][4] = Edge("",4) 
-	test[2][5] = Edge("",2) 
-	test[2][3] = Edge("",7) 
-	test[3][5] = Edge("",1) 
-	test[3][4] = Edge("",-1) 
+	test[0][1] = Edge("",5)
+	test[0][2] = Edge("",3)
+	test[1][3] = Edge("",6)
+	test[1][2] = Edge("",2)
+	test[2][4] = Edge("",4)
+	test[2][5] = Edge("",2)
+	test[2][3] = Edge("",7)
+	test[3][5] = Edge("",1)
+	test[3][4] = Edge("",-1)
 	test[4][5] = Edge("",-2)
-	print find_longest_path((0,1), (4,5), test) 
+	print find_longest_path((0,1), (4,5), test)
 
 def remove_repeat_chords(max_path, edge_matrix):
 	prev_edge = None
@@ -303,7 +304,7 @@ def remove_repeat_chords(max_path, edge_matrix):
 		prev_edge = curr_edge
 
 def evaluate(results, answer_key):
-	# evaluate 
+	# evaluate
 	final_score = 0
 
 	for result in results:
@@ -337,7 +338,7 @@ def evaluate(results, answer_key):
 
 		# add penalties together
 		penalties = [sum(x) for x in zip(chord_measures, time_measures)]
-		
+
 		# get min penalty
 		min_pen = float("inf")
 		min_index = 0
@@ -346,13 +347,13 @@ def evaluate(results, answer_key):
 				min_pen = pen
 				min_index = index
 			elif pen == min_pen:
-				
+
 				# if tie then get one with min time measure
 				if time_measures[index] < time_measures[min_index]:
 					min_pen = pen
 					min_index = index
 		final_score += min_pen
-	
+
 	# average penalities
 	final_score /= len(results)
 
@@ -382,7 +383,7 @@ def euclidean_distance(x,y):
 	distance = e.euclidean(x,y)
 	if add_penalty:
 		return distance + MISMATCH_PENALTY
-	return distance    
+	return distance
 
 def save_results(max_path, edge_matrix):
 	# SAVING OUR GUESS TO FILES IN /kpanswers/
@@ -399,7 +400,7 @@ def save_results(max_path, edge_matrix):
 	for edge in max_path:
 		if edge is not None:
 			end_tick = node_array[edge[1]].tick
-			
+
 			while i < len(old_pattern[0]):
 				#copy over from old file
 				event = old_pattern[0][i]
@@ -409,8 +410,8 @@ def save_results(max_path, edge_matrix):
 				else:
 					break
 
-			chord = "guess: " + (edge_matrix[edge[0]][edge[1]]).chord_name 
-			lyric = midi.LyricsEvent(tick=end_tick, text=chord, data = [ord(x) for x in list(chord)])	
+			chord = "guess: " + (edge_matrix[edge[0]][edge[1]]).chord_name
+			lyric = midi.LyricsEvent(tick=end_tick, text=chord, data = [ord(x) for x in list(chord)])
 			new_track.append(lyric)
 
 	while i < len(old_pattern[0])-1:
@@ -428,13 +429,13 @@ def save_results(max_path, edge_matrix):
 
 def main():
 	files = next(os.walk("kpcorpus"))[2]
-
+	files = natsorted(files, key=lambda y: y.lower())
 	scores = []
 
 	print "Starting"
 	for f in files:
 		(events, answer_key) = read_midi_files("kpcorpus/%s" % f)
-		
+
 		# Don't bother to do chordal analysis
 		if answer_key == False:
 			continue
