@@ -111,6 +111,7 @@ SCORING = {
 	"D#_fdim":[(3,6,9,0),.044]
 }
 
+# At the end, SCORING contains all the templates plus the enharmonics listed in SCORING.
 SCORING.update(ALL_TEMPLATES)
 
 def read_midi_files(path):
@@ -265,7 +266,6 @@ def score_edges(edge_matrix,node_array):
 			edge_matrix[row][col] = Edge(max_chord_name, max_score)
 
 def find_longest_path(start, end, graph):
-
 	n = len(graph)
 	LOWDIST=float("-inf")
 	dist = dict((x, LOWDIST) for x in xrange(0,n))
@@ -273,13 +273,13 @@ def find_longest_path(start, end, graph):
 	comesfrom = dict()
 	for row in xrange(0,n): #u
 		for col in xrange(row+1,n): #v
-		#if dist(v) < dist(u) + score of (u,v)
 			currdist_v = dist[col]
 			dist_uv = dist[row] + graph[row][col].score
 			if currdist_v < dist_uv:
 				dist[col] = dist_uv
 				comesfrom[col] = row
-
+	# The linked list is saved backwards, therefore, the graph
+	# needs to be traversed from end to beginning and reversed later
 	maxpath = [end[1]]
 	while maxpath[-1] != start[0]:
 		maxpath.append(comesfrom[maxpath[-1]])
@@ -287,6 +287,7 @@ def find_longest_path(start, end, graph):
 	for i in range(0, len(maxpath)-1):
 		val = (maxpath[i],maxpath[i+1])
 		maxpath[i] = val
+	# Removing the last minimal segment as this is assumed as destination
 	maxpath.pop()
 	return maxpath
 
@@ -454,10 +455,6 @@ def main():
 			continue
 
 		node_array = find_minimal_segments(events)
-		for i,n in enumerate(node_array):
-			print i, n.tick, n.end_tick
-			for e in n.events:
-				print '\t{}-{}'.format(e[0]%12, e)
 
 		size = len(node_array)
 		edge_matrix = [[float("-inf") for i in range(size)] for i in range(size)]
