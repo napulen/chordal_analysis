@@ -238,7 +238,7 @@ def score_edges(edge_matrix,node_array):
 					max_chord_name = chord
 
 				# tie
-				elif max_score == (P - (M+N)):
+				elif max_score == curr_score:
 					# tie using Root Weight
 
 					old_root = ALL_TEMPLATES[max_chord_name][0][0]
@@ -272,10 +272,12 @@ def find_longest_path(start, end, graph):
 	dist[start[0]] = 0
 	comesfrom = dict()
 	for row in xrange(0,n): #u
-		for col in  xrange(row+1,n): #v
+		for col in xrange(row+1,n): #v
 		#if dist(v) < dist(u) + score of (u,v)
-			if dist[col] < (dist[row] + graph[row][col].score):
-				dist[col] = dist[row] + graph[row][col].score
+			currdist_v = dist[col]
+			dist_uv = dist[row] + graph[row][col].score
+			if currdist_v < dist_uv:
+				dist[col] = dist_uv
 				comesfrom[col] = row
 
 	maxpath = [end[1]]
