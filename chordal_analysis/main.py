@@ -153,17 +153,17 @@ def read_midi_files(path):
 def find_minimal_segments(events):
 	node_array = []
 	curr_tick = events[0].tick
-	partition = MinimalSegment(curr_tick, 0, [])
-
 	last_tick = 0
+	partition = MinimalSegment(curr_tick, last_tick, [])
+
 	for event in events:
 		last_tick = event.tick
-		if event.tick == curr_tick:
+		if last_tick == curr_tick:
 			partition.addEvent(event)
 		else:
-			partition.end_tick = event.tick
+			partition.end_tick = last_tick
 			node_array.append(partition)
-			curr_tick = event.tick
+			curr_tick = last_tick
 			partition = MinimalSegment(curr_tick, 0, [])
 			partition.addEvent(event)
 
@@ -176,21 +176,26 @@ def score_edges(edge_matrix,node_array):
 
 	# traverse edges in matrix
 	n = len(edge_matrix)
+	# FOR EVERY MINIMAL SEGMENT
 	for row in xrange(n):
+		# FOR EVERY MINIMAL SEGMENT ***AFTER*** THE CURRENT MINIMAL SEGMENT
 		for col in xrange(row+1,n):
 
 			# holds note weights across all minimal segments in an edge
+			# THESE ARE THE GLOBAL WEIGHTS
 			note_weights = Counter({})
 			bad_segments = 0
 			for i in xrange(row, col+1):
 
 				# holds the weights of a note for a single minimal segment
+				# THESE ARE LOCAL WEIGHTS PER MINIMAL SEGMENT
 				weights = Counter({})
 
 				segment_length = node_array[i].end_tick - node_array[i].tick
 
 				# getting each event in a segment
 				for note in node_array[i].events:
+					# IF IT IS NOT A note_off EVENT
 					if note[1] !=0:
 						if segment_length > MIN_SEGMENT_LENGTH:
 							weights[note[0]] = 1
@@ -204,26 +209,32 @@ def score_edges(edge_matrix,node_array):
 			max_chord_name = ""
 
 			# iterate through templates
+			note_weights_sum = sum(note_weights.values())
 			for chord,base in ALL_TEMPLATES.iteritems():
 				P = 0
-				N = sum(note_weights.values())
+				N = note_weights_sum
 				M = 0
 
 				# score edge-to-template similarity
+				# SCORE THE NOTES IN THE SEGMENT TO THE TEMPLATE
 				for note in note_weights.keys():
 					if note%12 in base[0]:
 						P += note_weights[note]
 						N -= note_weights[note]
 
+				# GET ALL THE PITCH CLASSES IN THE SEGMENT
+				# THIS IS DONE HERE AND NOT BEFORE TO CONSERVE THE PENALTIES FOR A PARTICULAR MIDINOTE(IF ANY)
 				notes = [x%12 for x in note_weights.keys()]
 
+				# CHECKING NOTES APPEARING IN THE TEMPLATE BUT ***NOT*** IN THE SEGMENT
 				for note in base[0]:
 					if note not in notes:
 						M+=1
 
 				# update max score and best template for edge
-				if max_score < (P - (M+N)):
-					max_score = P - (M+N)
+				curr_score = P - (M + N)
+				if max_score < curr_score:
+					max_score = curr_score
 					max_chord_name = chord
 
 				# tie
@@ -236,19 +247,19 @@ def score_edges(edge_matrix,node_array):
 					weight_of_old = 0
 					weight_of_new = 0
 					for x in notes:
-						if x % 12 == old_root:
+						if x == old_root:
 							weight_of_old += 1
-						elif x % 12 == new_root:
+						elif x == new_root:
 							weight_of_new +=1
 
 					if weight_of_old < weight_of_new:
-						max_score = P - (M+N)
+						max_score = curr_score
 						max_chord_name = chord
 
 					elif weight_of_new == weight_of_old:
 						# tie, use highest probability
 
-						max_score = max_score if ALL_TEMPLATES[max_chord_name][1] > base[1] else P - (M + N)
+						max_score = max_score if ALL_TEMPLATES[max_chord_name][1] > base[1] else curr_score
 						max_chord_name = max_chord_name if ALL_TEMPLATES[max_chord_name][1] > base[1] else chord
 
 			edge_matrix[row][col] = Edge(max_chord_name, max_score)
@@ -441,6 +452,10 @@ def main():
 			continue
 
 		node_array = find_minimal_segments(events)
+		for i,n in enumerate(node_array):
+			print i, n.tick, n.end_tick
+			for e in n.events:
+				print '\t{}-{}'.format(e[0]%12, e)
 
 		size = len(node_array)
 		edge_matrix = [[float("-inf") for i in range(size)] for i in range(size)]
