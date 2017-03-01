@@ -264,6 +264,8 @@ def score_edges(edge_matrix,node_array):
 						max_chord_name = max_chord_name if ALL_TEMPLATES[max_chord_name][1] > base[1] else chord
 
 			edge_matrix[row][col] = Edge(max_chord_name, max_score)
+			print '[{},{}]'.format(edge_matrix[row][col].chord_name, edge_matrix[row][col].score),
+		print ''
 
 def find_longest_path(start, end, graph):
 	n = len(graph)
@@ -399,13 +401,13 @@ def euclidean_distance(x,y):
 		return distance + MISMATCH_PENALTY
 	return distance
 
-def save_results(max_path, edge_matrix):
+def save_results(max_path, edge_matrix, node_array, f):
 	# SAVING OUR GUESS TO FILES IN /kpanswers/
 	old_pattern = midi.read_midifile("kpcorpus/%s" % f)
 	form = old_pattern.format
 	res = old_pattern.resolution
 	new_pattern = midi.Pattern(format=form, resolution=res, tracks=[])
-	new_track = midi.Track( )
+	new_track = midi.Track()
 	new_pattern.append(new_track)
 	old_pattern.make_ticks_abs()
 	new_pattern.make_ticks_abs()
@@ -419,12 +421,18 @@ def save_results(max_path, edge_matrix):
 				#copy over from old file
 				event = old_pattern[0][i]
 				if event.tick <= end_tick:
-					new_track.append(event)
+					try:
+						if event.metacommand == LYRIC_EVENT:
+							''' Ignore '''
+						else:
+							new_track.append(event)
+					except:
+						new_track.append(event)
 					i+=1
 				else:
 					break
 
-			chord = "guess: " + (edge_matrix[edge[0]][edge[1]]).chord_name
+			chord = "" + (edge_matrix[edge[0]][edge[1]]).chord_name
 			lyric = midi.LyricsEvent(tick=end_tick, text=chord, data = [ord(x) for x in list(chord)])
 			new_track.append(lyric)
 
@@ -446,8 +454,9 @@ def main():
 	files = natsorted(files, key=lambda y: y.lower())
 	scores = []
 
-	print "Starting"
+	#print "Starting"
 	for f in files:
+		print f
 		(events, answer_key) = read_midi_files("kpcorpus/%s" % f)
 
 		# Don't bother to do chordal analysis
@@ -471,8 +480,10 @@ def main():
 			if edge is not None:
 				result.append([node_array[edge[1]].tick, edge_matrix[edge[0]][edge[1]].chord_name])
 
-		score = evaluate(result, answer_key)
+		if answer_key:
+			score = evaluate(result, answer_key)
 		scores.append(score)
+		save_results(max_path, edge_matrix, node_array, f)
 
 		print "%s is done: %f" % (f,score)
 	pprint.pprint(scores)
