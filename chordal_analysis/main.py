@@ -82,6 +82,17 @@ def compute_max_paths_u_to_v(scored_segments, origin, end):
 			if curr_u_score + u_to_v > curr_v_score:
 				ms[v]['maxpath']['score'] = curr_u_score + u_to_v
 				ms[v]['maxpath']['origin'] = u
+	# Trace back the whole path
+	curr_node = end
+	origin = ms[curr_node]['maxpath']['origin']
+	maxpath = [end]
+	while origin != 'HERE':
+		curr_node = origin
+		origin = ms[curr_node]['maxpath']['origin']
+		maxpath.append(curr_node)
+	maxpath = list(reversed(maxpath))
+	scored_segments['maxpath'] = maxpath
+
 
 def compute_max_paths(scored_segments):
 	last_minseg = len(scored_segments['minimal_segments'])-1
@@ -91,6 +102,7 @@ def score_segment(notes):
 	max_score = MINIMUM_INTEGER
 	chords = []
 	for pitch_class in range(PITCH_CLASSES):
+		print '\t\t{}...'.format(pitch_classes[pitch_class])
 		for chord_type in chord_templates:
 			weight = chord_templates[chord_type][pitch_class]
 			positive_intersection = [n for n in notes if n in weight]
@@ -99,6 +111,7 @@ def score_segment(notes):
 			N = len(negative_intersection)
 			M = len(weight) - len(set(positive_intersection))
 			S = P - (M + N)
+			print '\t\t\t{} = {} - ({} + {})'.format(S,P,N,M)
 			if S > max_score:
 				chord = get_chord_name(pitch_class, chord_type)
 				chords = [chord]
@@ -112,7 +125,7 @@ def score_segments(minimal_segments):
 	scored_segments = {'minimal_segments':{}}
 	minsegs_number = len(minimal_segments)
 	for idu,u in enumerate(minimal_segments):
-		print 'Scoring... {}/{}...'.format(idu,minsegs_number-1),
+		print 'Scoring... {}/{}...'.format(idu,minsegs_number-1)
 		start = time.time()
 		# Initialize the segment tree
 		segment_tree = {}
@@ -125,14 +138,15 @@ def score_segments(minimal_segments):
 		segment_notes = u_notes
 		# Then iterate over the rest of minimal segments
 		for idv,v in enumerate(minimal_segments[idu+1:]):
+			print '\t{} to {}...'.format(idu,idu+idv+1)
 			# Initialize this segment
 			segment_tree[idu+idv+1] = {}
 			segment = segment_tree[idu+idv+1]
-			v_notes = [note.pitch.pitchClass for note in v]
-			segment_notes.extend(v_notes)
 			score,chords = score_segment(segment_notes)
 			segment['score'] = score
 			segment['chords'] = chords
+			v_notes = [note.pitch.pitchClass for note in v]
+			segment_notes.extend(v_notes)
 		end = time.time()
 		print '{}s'.format(end-start)
 	return scored_segments
@@ -143,26 +157,19 @@ def get_minimal_segments(score):
 	minimal_segments = chords.recurse().getElementsByClass('Chord')
 	return minimal_segments
 
+def chordal_analysis(score):
+	minimal_segments = get_minimal_segments(score)
+	scored_segments = score_segments(minimal_segments)
+	compute_max_paths(scored_segments)
+	return scored_segments
+
 if __name__ == '__main__':
 	files = os.listdir(INPUT_DIR)
 	files = [x for x in files if x.endswith('.xml')]
 	files = natsorted(files, key=lambda y: y.lower())
 	for fname in files:
-		#print fname
 		fdir = os.path.join(INPUT_DIR,fname)
 		score = music21.converter.parse(fdir)
-		minimal_segments = get_minimal_segments(score)
-		#print len(minimal_segments)
-		#minimal_segments.show()
-		scored_segments = score_segments(minimal_segments)
-		compute_max_paths(scored_segments)
-		print json.dumps(scored_segments)
-		#lyrics = music21.search.lyrics.LyricSearcher(score)
-
-		#s.show()
-		#mid.open(os.path.join)
-		#mid.read()
-		#mid.close()
-		#mid = MidiFile(os.path.join(INPUT_DIR,f))
-		#print mid
+		chordanalysis = chordal_analysis(score)
+		print json.dumps(chordanalysis)
 		break
