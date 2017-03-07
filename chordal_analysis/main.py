@@ -101,8 +101,8 @@ def compute_max_paths(scored_segments):
 def score_segment(notes):
 	max_score = MINIMUM_INTEGER
 	chords = []
-	for pitch_class in range(PITCH_CLASSES):		
-		print '\t\t{}...'.format(pitch_classes[pitch_class])
+	for pitch_class in range(PITCH_CLASSES):
+		#print '\t\t{}...'.format(pitch_classes[pitch_class])
 		for chord_type in chord_templates:
 			template = chord_templates[chord_type][pitch_class]
 			positive_list = [n for subnotes in notes for n in subnotes if n in template]
@@ -112,7 +112,7 @@ def score_segment(notes):
 			N = len(negative_list)
 			M = len(missing_list)
 			S = P - (M + N)
-			print '\t\t\t{} = {} - ({} + {})'.format(S,P,N,M)
+			#print '\t\t\t{} = {} - ({} + {})'.format(S,P,N,M)
 			if S > max_score:
 				chord = get_chord_name(pitch_class, chord_type)
 				chords = [chord]
@@ -126,7 +126,7 @@ def score_segments(minimal_segments):
 	scored_segments = {'minimal_segments':{}}
 	minsegs_number = len(minimal_segments)
 	for idu,u in enumerate(minimal_segments):
-		print 'Scoring... {}/{}...'.format(idu,minsegs_number-1)
+		#print 'Scoring... {}/{}...'.format(idu,minsegs_number-1)
 		start = time.time()
 		# Initialize the segment tree
 		segment_tree = {}
@@ -139,7 +139,7 @@ def score_segments(minimal_segments):
 		segment_notes = [u_notes]
 		# Then iterate over the rest of minimal segments
 		for idv,v in enumerate(minimal_segments[idu+1:]):
-			print '\t{} to {}...'.format(idu,idu+idv+1)
+			#print '\t{} to {}...'.format(idu,idu+idv+1)
 			# Initialize this segment
 			segment_tree[idu+idv+1] = {}
 			segment = segment_tree[idu+idv+1]
@@ -149,7 +149,7 @@ def score_segments(minimal_segments):
 			v_notes = [note.pitch.pitchClass for note in v]
 			segment_notes.append(v_notes)
 		end = time.time()
-		print '{}s'.format(end-start)
+		#print '{}s'.format(end-start)
 	return scored_segments
 
 def get_minimal_segments(score):
@@ -158,11 +158,24 @@ def get_minimal_segments(score):
 	minimal_segments = chords.recurse().getElementsByClass('Chord')
 	return minimal_segments
 
+def annotate_chords(chords, chordanalysis):
+	maxpath = chordanalysis['maxpath']
+	ms = chordanalysis['minimal_segments']
+	end = maxpath[-1]
+	for idx,origin in enumerate(maxpath):
+		if origin != end:
+			nextms = maxpath[idx+1]
+			possible_chords = ms[origin]['segments'][nextms]['chords']
+			for chord in possible_chords:
+				chords[idx].addLyric(chord)
+
+
 def chordal_analysis(score):
-	minimal_segments = get_minimal_segments(score)
-	scored_segments = score_segments(minimal_segments)
-	compute_max_paths(scored_segments)
-	return scored_segments
+	chords = get_minimal_segments(score)
+	chordanalysis = score_segments(chords)
+	compute_max_paths(chordanalysis)
+	annotate_chords(chords, chordanalysis)
+	return chordanalysis
 
 if __name__ == '__main__':
 	files = os.listdir(INPUT_DIR)
@@ -172,5 +185,6 @@ if __name__ == '__main__':
 		fdir = os.path.join(INPUT_DIR,fname)
 		score = music21.converter.parse(fdir)
 		chordanalysis = chordal_analysis(score)
-		print json.dumps(chordanalysis)
+		score.show()
+		#print json.dumps(chordanalysis)
 		break
