@@ -101,15 +101,16 @@ def compute_max_paths(scored_segments):
 def score_segment(notes):
 	max_score = MINIMUM_INTEGER
 	chords = []
-	for pitch_class in range(PITCH_CLASSES):
+	for pitch_class in range(PITCH_CLASSES):		
 		print '\t\t{}...'.format(pitch_classes[pitch_class])
 		for chord_type in chord_templates:
-			weight = chord_templates[chord_type][pitch_class]
-			positive_intersection = [n for n in notes if n in weight]
-			negative_intersection = [n for n in notes if n not in weight]
-			P = len(positive_intersection)
-			N = len(negative_intersection)
-			M = len(weight) - len(set(positive_intersection))
+			template = chord_templates[chord_type][pitch_class]
+			positive_list = [n for subnotes in notes for n in subnotes if n in template]
+			negative_list = [n for subnotes in notes for n in subnotes if n not in template]
+			missing_list = [note for note in template for sublist in notes if note not in sublist]
+			P = len(positive_list)
+			N = len(negative_list)
+			M = len(missing_list)
 			S = P - (M + N)
 			print '\t\t\t{} = {} - ({} + {})'.format(S,P,N,M)
 			if S > max_score:
@@ -135,7 +136,7 @@ def score_segments(minimal_segments):
 			break
 		# Segment starts with the notes of the first minimal segment
 		u_notes = [note.pitch.pitchClass for note in u]
-		segment_notes = u_notes
+		segment_notes = [u_notes]
 		# Then iterate over the rest of minimal segments
 		for idv,v in enumerate(minimal_segments[idu+1:]):
 			print '\t{} to {}...'.format(idu,idu+idv+1)
@@ -146,7 +147,7 @@ def score_segments(minimal_segments):
 			segment['score'] = score
 			segment['chords'] = chords
 			v_notes = [note.pitch.pitchClass for note in v]
-			segment_notes.extend(v_notes)
+			segment_notes.append(v_notes)
 		end = time.time()
 		print '{}s'.format(end-start)
 	return scored_segments
