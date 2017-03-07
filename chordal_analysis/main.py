@@ -1,7 +1,5 @@
 '''
 Re-implementation of the chordal_analysis algorithms from Bryan Pardo, using Music21
-
-Nestor Napoles (napulen@gmail.com), 2017
 '''
 
 import os, music21, json, time, sys
@@ -69,6 +67,8 @@ def get_chord_name(pitch_class, chord_type):
 	return '{}_{}'.format(pitch_classes[pitch_class],chord_type)
 
 def compute_max_paths_u_to_v(scored_segments, origin, end):
+	''' This function calculates the max path from one minimal segments
+	to another, the indexes of both (origin, end) segments are mandatory '''
 	ms = scored_segments['minimal_segments']
 	# Initialize the origin minimal segment
 	ms[origin]['maxpath']['origin'] = 'HERE'
@@ -95,10 +95,15 @@ def compute_max_paths_u_to_v(scored_segments, origin, end):
 
 
 def compute_max_paths(scored_segments):
+	''' As the default case is to compute the max_path in the
+	entire graph, adding this callback to calculate the last
+	minimal segment and make it transparent to the main function '''
 	last_minseg = len(scored_segments['minimal_segments'])-1
 	compute_max_paths_u_to_v(scored_segments, 0, last_minseg)
 
 def score_segment(notes):
+	''' Computation of the score, iterates over the chord templates
+	for each pitch class and outputs the score S and possible chord labels '''
 	max_score = MINIMUM_INTEGER
 	chords = []
 	for pitch_class in range(PITCH_CLASSES):
@@ -107,10 +112,10 @@ def score_segment(notes):
 			template = chord_templates[chord_type][pitch_class]
 			positive_list = [n for subnotes in notes for n in subnotes if n in template]
 			negative_list = [n for subnotes in notes for n in subnotes if n not in template]
-			missing_list = [note for note in template for sublist in notes if note not in sublist]
+			#missing_list = [note for note in template for sublist in notes if note not in sublist]
 			P = len(positive_list)
 			N = len(negative_list)
-			M = len(missing_list)
+			M = len(template) - len(set(positive_list))
 			S = P - (M + N)
 			#print '\t\t\t{} = {} - ({} + {})'.format(S,P,N,M)
 			if S > max_score:
@@ -123,6 +128,9 @@ def score_segment(notes):
 	return max_score,chords
 
 def score_segments(minimal_segments):
+	''' This function computes scores for every minimal segment
+	in the score, and generates a "segment" tree that includes
+	all the segments (edges) that start from this minimal segment (node) '''
 	scored_segments = {'minimal_segments':{}}
 	minsegs_number = len(minimal_segments)
 	for idu,u in enumerate(minimal_segments):
@@ -153,12 +161,17 @@ def score_segments(minimal_segments):
 	return scored_segments
 
 def get_minimal_segments(score):
+	''' In this case, we are considering the minimal segments
+	as the "chordify()" output from Music21, which is pretty
+	similar and easy to get '''
 	chords = score.chordify()
 	score.insert(0, chords)
 	minimal_segments = chords.recurse().getElementsByClass('Chord')
 	return minimal_segments
 
 def annotate_chords(chords, chordanalysis):
+	''' This is the final step in the analysis, adding
+	the possible chords as lyrics in the original score '''
 	maxpath = chordanalysis['maxpath']
 	ms = chordanalysis['minimal_segments']
 	end = maxpath[-1]
@@ -171,6 +184,9 @@ def annotate_chords(chords, chordanalysis):
 
 
 def chordal_analysis(score):
+	''' This is the main function, the input for This
+	is a stream representation of Music21 that can be
+	obtained with the music21.converter.parse() function '''
 	chords = get_minimal_segments(score)
 	chordanalysis = score_segments(chords)
 	compute_max_paths(chordanalysis)
