@@ -65,6 +65,9 @@ pitch_classes = {
 11:'B'
 }
 
+def log(msg, indent=0):
+	print '{}{}'.format('\t'*indent, msg)
+
 def get_chord_name(pitch_class, chord_type):
 	return '{}_{}'.format(pitch_classes[pitch_class],chord_type)
 
@@ -119,7 +122,7 @@ def score_segment(notes):
 	max_score = MINIMUM_INTEGER
 	chords = []
 	for pitch_class in range(PITCH_CLASSES):
-		#print '\t\t{}...'.format(pitch_classes[pitch_class])
+		log('\t\t{}...'.format(pitch_classes[pitch_class]))
 		for chord_type in chord_templates:
 			template = chord_templates[chord_type][pitch_class]
 			positive_list = [n for subnotes in notes for n in subnotes if n in template]
@@ -129,7 +132,7 @@ def score_segment(notes):
 			N = len(negative_list)
 			M = len(template) - len(set(positive_list))
 			S = P - (M + N)
-			#print '\t\t\t{}:{} = {} - ({} + {})'.format(chord_type, S,P,N,M)
+			log('\t\t\t{}:{} = {} - ({} + {})'.format(chord_type, S,P,N,M))
 			if S > max_score:
 				chord = get_chord_name(pitch_class, chord_type)
 				chords = [chord]
@@ -137,7 +140,7 @@ def score_segment(notes):
 			elif S == max_score:
 				chord = get_chord_name(pitch_class, chord_type)
 				chords.append(chord)
-	#print '\t\t{}{}'.format(max_score,chords)
+	log('\t\t{}{}'.format(max_score,chords))
 	return max_score,chords
 
 def score_segments(minimal_segments):
@@ -147,7 +150,7 @@ def score_segments(minimal_segments):
 	scored_segments = {'minimal_segments':{}}
 	minsegs_number = len(minimal_segments)
 	for idu,u in enumerate(minimal_segments):
-		#print 'Scoring... {}/{}...'.format(idu,minsegs_number-1)
+		log('Scoring... {}/{}...'.format(idu,minsegs_number-1))
 		start = time.time()
 		# Initialize the segment tree
 		segment_tree = {}
@@ -160,7 +163,7 @@ def score_segments(minimal_segments):
 		segment_notes = [u_notes]
 		# Then iterate over the rest of minimal segments
 		for idv,v in enumerate(minimal_segments[idu+1:]):
-			#print '\t{} to {}...'.format(idu,idu+idv+1)
+			log('\t{} to {}...'.format(idu,idu+idv+1))
 			# Initialize this segment
 			segment_tree[idu+idv+1] = {}
 			segment = segment_tree[idu+idv+1]
@@ -170,7 +173,7 @@ def score_segments(minimal_segments):
 			v_notes = [note.pitch.pitchClass for note in v]
 			segment_notes.append(v_notes)
 		end = time.time()
-		#print '{}s'.format(end-start)
+		log('{}s'.format(end-start))
 	return scored_segments
 
 def get_minimal_segments(score):
@@ -239,9 +242,9 @@ def are_chord_labels_equal(cl1, cl2):
 	pc2 = get_pitch_class(pitch_class2)
 	if pc1 == pc2:
 		if chord_type1 == chord_type2:
-			''' They are the same '''
+			#They are the same
 			return True
-	''' They are not the same '''
+	#They are not the same
 	return False
 
 def compare_chord_labels(original, possible):
@@ -255,37 +258,62 @@ def compare_chord_labels(original, possible):
 def evaluate(original_score, chordalanalysis):
 	orgnlabels = chordify_with_lyrics(original_score)
 	analysislabels = chordalanalysis['chordal_analysis']
+	analysislabels = {int(k):v for k,v in analysislabels.items() if isinstance(k, basestring)}
 	minsegs_number = len(chordalanalysis['minimal_segments'])
 	minseg_score = []
+	curr_orgnl_label = ''
+	curr_analysis_label = ''
 	for minseg_id in range(minsegs_number):
 		if minseg_id in orgnlabels:
 			curr_orgnl_label = orgnlabels[minseg_id]
 		if minseg_id in analysislabels:
 			curr_analysis_label = analysislabels[minseg_id]
+		if curr_orgnl_label == '' or 'X' in curr_orgnl_label:
+			minsegs_number -= 1
+			continue
 		comparison = compare_chord_labels(curr_orgnl_label, curr_analysis_label)
 		minseg_score.append(comparison)
-		print '{} vs. {} = {}'.format(curr_orgnl_label, curr_analysis_label, comparison)
+		log('{} vs. {} = {}'.format(curr_orgnl_label, curr_analysis_label, comparison))
 	percentage = (1.0*sum(minseg_score)/minsegs_number)*100.0
 	return minseg_score, percentage
 
 if __name__ == '__main__':
+	verbose = False
 	files = os.listdir(INPUT_DIR)
 	files = [x for x in files if x.endswith('.xml')]
 	files = natsorted(files, key=lambda y: y.lower())
+	scores = []
+	if not verbose:
+		global log
+		log = lambda *args: None
 	for fname in files:
 		print '{}... '.format(fname),
 		fout_xml = '{}_analysis.xml'.format(fname[:-4])
 		fout_json = '{}_analysis.json'.format(fname[:-4])
 		fdir = os.path.join(INPUT_DIR,fname)
-		score = music21.converter.parse(fdir)
-		chordanalysis = chordal_analysis(score)
-		x = score.write()
-		copyfile(x, os.path.join(OUTPUT_DIR, fout_xml))
-		with open(os.path.join(OUTPUT_DIR, fout_json), 'w') as f:
-			f.write(json.dumps(chordanalysis, sort_keys=True, indent=4))
-			f.close()
-		minseg_score, perc = evaluate(score, chordanalysis)
-		print perc
-		score.show()
-		print 'Done.'
-		break
+		score_orgnl = music21.converter.parse(fdir)
+		score =  music21.converter.parse(fdir)
+		if os.path.exists(os.path.join(OUTPUT_DIR, fout_json)):
+			print 'Loading previous computation... ',
+			with open(os.path.join(OUTPUT_DIR, fout_json), 'r') as f:
+				chordanalysis = json.load(f)
+				f.close()
+		else:
+			chordanalysis = chordal_analysis(score)
+			with open(os.path.join(OUTPUT_DIR, fout_json), 'w') as f:
+				f.write(json.dumps(chordanalysis, sort_keys=True, indent=4))
+				f.close()
+		if not os.path.exists(os.path.join(OUTPUT_DIR, fout_xml)):
+			with open(os.path.join(OUTPUT_DIR, fout_json), 'r') as f:
+				x = score.write()
+				copyfile(x, os.path.join(OUTPUT_DIR, fout_xml))
+		minseg_score, perc = evaluate(score_orgnl, chordanalysis)
+		scores.append(perc)
+		#score.show()
+		print '{}% accuracy...'.format(perc)
+	print 'Overall Analysed Files:'
+	files_number = len(scores)
+	print '\tTotal number of files: {}'.format(files_number)
+	print '\tAverage accuracy: {}'.format(sum(scores)/files_number)
+	print '\tMinimum accuracy: {}'.format(min(scores))
+	print '\tMaximum accuracy: {}'.format(max(scores))
