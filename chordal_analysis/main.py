@@ -68,6 +68,16 @@ pitch_classes = {
 def get_chord_name(pitch_class, chord_type):
 	return '{}_{}'.format(pitch_classes[pitch_class],chord_type)
 
+def get_pitch_class(note_str):
+	''' This function converts a string note name
+	into a pitch_class. WARNING: There is a really
+	risky assumption here: The "b" (lowercase) symbol
+	will always be used to represent "flat" and never
+	the note "B" '''
+	note_str = note_str.replace('b','-')
+	pitch = music21.pitch.Pitch(note_str)
+	return pitch.pitchClass
+
 def compute_max_paths_u_to_v(scored_segments, origin, end):
 	''' This function calculates the max path from one minimal segments
 	to another, the indexes of both (origin, end) segments are mandatory '''
@@ -218,6 +228,30 @@ def chordify_with_lyrics(score):
 				continue
 	return labels
 
+def are_chord_labels_equal(cl1, cl2):
+	cl1 = cl1.split('_')
+	pitch_class1 = cl1[0]
+	chord_type1 = cl1[1]
+	cl2 = cl2.split('_')
+	pitch_class2 = cl2[0]
+	chord_type2 = cl2[1]
+	pc1 = get_pitch_class(pitch_class1)
+	pc2 = get_pitch_class(pitch_class2)
+	if pc1 == pc2:
+		if chord_type1 == chord_type2:
+			''' They are the same '''
+			return True
+	''' They are not the same '''
+	return False
+
+def compare_chord_labels(original, possible):
+	possible_number = len(possible)
+	for chord in possible:
+		if are_chord_labels_equal(original, chord):
+			return 1.0/possible_number
+	return 0.0
+
+
 def evaluate(original_score, chordalanalysis):
 	orgnlabels = chordify_with_lyrics(original_score)
 	analysislabels = chordalanalysis['chordal_analysis']
@@ -228,11 +262,9 @@ def evaluate(original_score, chordalanalysis):
 			curr_orgnl_label = orgnlabels[minseg_id]
 		if minseg_id in analysislabels:
 			curr_analysis_label = analysislabels[minseg_id]
-		if curr_orgnl_label in curr_analysis_label:
-			minseg_score.append(1)
-		else:
-			minseg_score.append(0)
-		print '{} vs. {} = {}'.format(curr_orgnl_label, curr_analysis_label, minseg_score[minseg_id])
+		comparison = compare_chord_labels(curr_orgnl_label, curr_analysis_label)
+		minseg_score.append(comparison)
+		print '{} vs. {} = {}'.format(curr_orgnl_label, curr_analysis_label, comparison)
 	percentage = (1.0*sum(minseg_score)/minsegs_number)*100.0
 	return minseg_score, percentage
 
@@ -253,7 +285,6 @@ if __name__ == '__main__':
 			f.write(json.dumps(chordanalysis, sort_keys=True, indent=4))
 			f.close()
 		minseg_score, perc = evaluate(score, chordanalysis)
-		print minseg_score
 		print perc
 		score.show()
 		print 'Done.'
