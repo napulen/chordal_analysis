@@ -6,8 +6,10 @@ import os, music21, json, time, sys
 from natsort import natsorted, ns
 import numpy as np
 from pylab import *
+from shutil import copyfile
 
 INPUT_DIR = 'kpcorpus'
+OUTPUT_DIR = 'output'
 MINIMUM_INTEGER = -sys.maxint - 1
 
 PITCH_CLASSES = 12
@@ -117,7 +119,7 @@ def score_segment(notes):
 			N = len(negative_list)
 			M = len(template) - len(set(positive_list))
 			S = P - (M + N)
-			#print '\t\t\t{} = {} - ({} + {})'.format(S,P,N,M)
+			#print '\t\t\t{}:{} = {} - ({} + {})'.format(chord_type, S,P,N,M)
 			if S > max_score:
 				chord = get_chord_name(pitch_class, chord_type)
 				chords = [chord]
@@ -125,6 +127,7 @@ def score_segment(notes):
 			elif S == max_score:
 				chord = get_chord_name(pitch_class, chord_type)
 				chords.append(chord)
+	#print '\t\t{}{}'.format(max_score,chords)
 	return max_score,chords
 
 def score_segments(minimal_segments):
@@ -174,13 +177,15 @@ def annotate_chords(chords, chordanalysis):
 	the possible chords as lyrics in the original score '''
 	maxpath = chordanalysis['maxpath']
 	ms = chordanalysis['minimal_segments']
+	chordanalysis['chordal_analysis'] = {}
 	end = maxpath[-1]
 	for idx,origin in enumerate(maxpath):
 		if origin != end:
 			nextms = maxpath[idx+1]
 			possible_chords = ms[origin]['segments'][nextms]['chords']
+			chordanalysis['chordal_analysis'][origin] = possible_chords
 			for chord in possible_chords:
-				chords[idx].addLyric(chord)
+				chords[origin].addLyric(chord)
 
 
 def chordal_analysis(score):
@@ -193,14 +198,63 @@ def chordal_analysis(score):
 	annotate_chords(chords, chordanalysis)
 	return chordanalysis
 
+def chordify_with_lyrics(score):
+	''' This is a function from Daniel Russo-Batterham to
+	chordify the score with the lyric information, which
+	in our case contains the chord ground-truth for the
+	kpcorpus dataset '''
+	labels = {}
+	voice = score.parts[0]
+	chords = score.chordify().recurse().getElementsByClass('Chord').stream()
+	for idx,chord in enumerate(chords):
+		chord_offset = chord.offset
+		for melody_note in voice.flat.getElementsByOffset(chord_offset):
+			try:
+				lyric = melody_note.lyrics[0].rawText
+				lyric = lyric.rsplit('_', 1)[0]
+				chord.addLyric(lyric)
+				labels[idx] = lyric
+			except (IndexError, AttributeError):
+				continue
+	return labels
+
+def evaluate(original_score, chordalanalysis):
+	orgnlabels = chordify_with_lyrics(original_score)
+	analysislabels = chordalanalysis['chordal_analysis']
+	minsegs_number = len(chordalanalysis['minimal_segments'])
+	minseg_score = []
+	for minseg_id in range(minsegs_number):
+		if minseg_id in orgnlabels:
+			curr_orgnl_label = orgnlabels[minseg_id]
+		if minseg_id in analysislabels:
+			curr_analysis_label = analysislabels[minseg_id]
+		if curr_orgnl_label in curr_analysis_label:
+			minseg_score.append(1)
+		else:
+			minseg_score.append(0)
+		print '{} vs. {} = {}'.format(curr_orgnl_label, curr_analysis_label, minseg_score[minseg_id])
+	percentage = (1.0*sum(minseg_score)/minsegs_number)*100.0
+	return minseg_score, percentage
+
 if __name__ == '__main__':
 	files = os.listdir(INPUT_DIR)
 	files = [x for x in files if x.endswith('.xml')]
 	files = natsorted(files, key=lambda y: y.lower())
 	for fname in files:
+		print '{}... '.format(fname),
+		fout_xml = '{}_analysis.xml'.format(fname[:-4])
+		fout_json = '{}_analysis.json'.format(fname[:-4])
 		fdir = os.path.join(INPUT_DIR,fname)
 		score = music21.converter.parse(fdir)
 		chordanalysis = chordal_analysis(score)
+		x = score.write()
+		copyfile(x, os.path.join(OUTPUT_DIR, fout_xml))
+		with open(os.path.join(OUTPUT_DIR, fout_json), 'w') as f:
+			f.write(json.dumps(chordanalysis, sort_keys=True, indent=4))
+			f.close()
+		minseg_score, perc = evaluate(score, chordanalysis)
+		print minseg_score
+		print perc
 		score.show()
-		#print json.dumps(chordanalysis)
+		print 'Done.'
 		break
