@@ -66,9 +66,11 @@ pitch_classes = {
 }
 
 def log(msg, indent=0):
+	''' Wrapper for logging according to the level of
+	verbosity. '''
 	print '{}{}'.format('\t'*indent, msg)
 
-def get_chord_name(pitch_class, chord_type):
+def get_chord_name(pitch_class, chord_type):	
 	return '{}_{}'.format(pitch_classes[pitch_class],chord_type)
 
 def get_pitch_class(note_str):
@@ -232,6 +234,10 @@ def chordify_with_lyrics(score):
 	return labels
 
 def are_chord_labels_equal(cl1, cl2):
+	''' Compares two chord labels and returns
+	True if they are the same. This comparison
+	considers enharmonics as the same label.
+	e.g.: C#_Maj == Db_Maj '''
 	cl1 = cl1.split('_')
 	pitch_class1 = cl1[0]
 	chord_type1 = cl1[1]
@@ -244,10 +250,13 @@ def are_chord_labels_equal(cl1, cl2):
 		if chord_type1 == chord_type2:
 			#They are the same
 			return True
-	#They are not the same
 	return False
 
 def compare_chord_labels(original, possible):
+	''' Gets a list of possible chords and compares
+	that to the original chord_label of the minimal
+	segment. The function outpus a score from 0.0
+	(no match at all), to 1.0 (full match).'''
 	possible_number = len(possible)
 	for chord in possible:
 		if are_chord_labels_equal(original, chord):
@@ -256,6 +265,12 @@ def compare_chord_labels(original, possible):
 
 
 def evaluate(original_score, chordalanalysis):
+	''' Evaluate the number of minimal segments
+	that are annotated similarly between two scores,
+	for an already annotated score, use chordify_with_lyrics()
+	to extract the annotations per minimal segment, this
+	is equivalent to the "chordal_analysis" dictionary
+	produced by the automatic analysis of this algorithm.'''
 	orgnlabels = chordify_with_lyrics(original_score)
 	analysislabels = chordalanalysis['chordal_analysis']
 	analysislabels = {int(k):v for k,v in analysislabels.items() if isinstance(k, basestring)}
@@ -287,14 +302,13 @@ if __name__ == '__main__':
 		global log
 		log = lambda *args: None
 	for fname in files:
-		print '{}... '.format(fname),
+		print '{}'.format(fname),
 		fout_xml = '{}_analysis.xml'.format(fname[:-4])
 		fout_json = '{}_analysis.json'.format(fname[:-4])
 		fdir = os.path.join(INPUT_DIR,fname)
 		score_orgnl = music21.converter.parse(fdir)
 		score =  music21.converter.parse(fdir)
 		if os.path.exists(os.path.join(OUTPUT_DIR, fout_json)):
-			print 'Loading previous computation... ',
 			with open(os.path.join(OUTPUT_DIR, fout_json), 'r') as f:
 				chordanalysis = json.load(f)
 				f.close()
@@ -310,7 +324,7 @@ if __name__ == '__main__':
 		minseg_score, perc = evaluate(score_orgnl, chordanalysis)
 		scores.append(perc)
 		#score.show()
-		print '{}% accuracy...'.format(perc)
+		print '\t{}% accuracy'.format(perc)
 	print 'Overall Analysed Files:'
 	files_number = len(scores)
 	print '\tTotal number of files: {}'.format(files_number)
