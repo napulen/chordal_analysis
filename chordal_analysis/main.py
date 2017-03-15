@@ -264,8 +264,8 @@ def score_edges(edge_matrix,node_array):
 						max_chord_name = max_chord_name if ALL_TEMPLATES[max_chord_name][1] > base[1] else chord
 
 			edge_matrix[row][col] = Edge(max_chord_name, max_score)
-			print '[{},{}]'.format(edge_matrix[row][col].chord_name, edge_matrix[row][col].score),
-		print ''
+		#print '[{},{}]'.format(edge_matrix[row][col].chord_name, edge_matrix[row][col].score),
+		#print ''
 
 def find_longest_path(start, end, graph):
 	n = len(graph)
