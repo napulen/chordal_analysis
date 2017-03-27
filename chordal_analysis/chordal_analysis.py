@@ -8,8 +8,6 @@ import numpy as np
 from pylab import *
 from shutil import copyfile
 
-INPUT_DIR = 'kpcorpus'
-OUTPUT_DIR = 'output'
 MINIMUM_INTEGER = -sys.maxint - 1
 
 PITCH_CLASSES = 12
@@ -318,62 +316,3 @@ def compare(ground_truth_filename, guess_filename):
 		log('{} vs. {} = {}'.format(curr_gtruth_label, curr_guess_label, comparison))
 	percentage = (1.0*sum(minseg_score)/gtruth_minsegs)*100.0
 	return minseg_score, percentage
-
-'''
-def main(parser):
-	args = parser.parse_args()
-	#if not args['verbosity']:
-	#	global log
-	#	log = lambda *args: None
-	if args[0] == 'analyze':
-		analyze()
-	elif args[0] == 'compare':
-		compare()
-	else:
-		parser.print_help()
-
-if __name__ == '__main__':
-	parser = argparse.ArgumentParser(description='Chordal analysis algorithm implemented using Music21 Toolkit.')
-	parser.add_argument('command', type=str, metavar='command', help='Use either "analyze" or "compare" commands')
-	main(parser)
-
-
-	old main
-	files = os.listdir(INPUT_DIR)
-	files = [x for x in files if x.endswith('.xml')]
-	files = natsorted(files, key=lambda y: y.lower())
-	scores = []
-	if not verbose:
-		global log
-		log = lambda *args: None
-	for fname in files:
-		print '{}'.format(fname),
-		fout_xml = '{}_analysis.xml'.format(fname[:-4])
-		fout_json = '{}_analysis.json'.format(fname[:-4])
-		fdir = os.path.join(INPUT_DIR,fname)
-		score_orgnl = music21.converter.parse(fdir)
-		score =  music21.converter.parse(fdir)
-		if os.path.exists(os.path.join(OUTPUT_DIR, fout_json)):
-			with open(os.path.join(OUTPUT_DIR, fout_json), 'r') as f:
-				chordanalysis = json.load(f)
-				f.close()
-		else:
-			chordanalysis = chordal_analysis(score)
-			with open(os.path.join(OUTPUT_DIR, fout_json), 'w') as f:
-				f.write(json.dumps(chordanalysis, sort_keys=True, indent=4))
-				f.close()
-		if not os.path.exists(os.path.join(OUTPUT_DIR, fout_xml)):
-			with open(os.path.join(OUTPUT_DIR, fout_json), 'r') as f:
-				x = score.write()
-				copyfile(x, os.path.join(OUTPUT_DIR, fout_xml))
-		minseg_score, perc = evaluate(score_orgnl, chordanalysis)
-		scores.append(perc)
-		#score.show()
-		print '\t{}% accuracy'.format(perc)
-	print 'Overall Analysed Files:'
-	files_number = len(scores)
-	print '\tTotal number of files: {}'.format(files_number)
-	print '\tAverage accuracy: {}'.format(sum(scores)/files_number)
-	print '\tMinimum accuracy: {}'.format(min(scores))
-	print '\tMaximum accuracy: {}'.format(max(scores))
-'''
